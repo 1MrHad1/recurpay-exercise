@@ -1,0 +1,11 @@
+{
+  "name": "recurpay-exercise",
+  "version": "1.0.0",
+  "description": "Filter a product list by availability and price, and total it up.",
+  "main": "filterProducts.js",
+  "scripts": {
+    "test": "node --test",
+    "demo": "node demo.js"
+  },
+  "license": "MIT"
+}
