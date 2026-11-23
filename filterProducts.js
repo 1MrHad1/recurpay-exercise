@@ -16,7 +16,9 @@ const DEFAULT_MIN_PRICE = 500;
  * nobody can see. See the README for the alternative I considered.
  */
 function isUsableNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  return typeof value === 'number'   // a real number, not the string "599"
+    && Number.isFinite(value)        // rules out NaN and Infinity
+    && value >= 0;                   // a negative would subtract from the total
 }
 
 /**
@@ -25,6 +27,8 @@ function isUsableNumber(value) {
  * usable. Nothing is defaulted or guessed.
  */
 function findProblem(product) {
+  // `typeof null` is 'object' and so is an array, so both need ruling out here
+  // or the property reads below either throw or silently succeed on nonsense.
   if (product === null || typeof product !== 'object' || Array.isArray(product)) {
     return 'not an object';
   }
@@ -34,6 +38,8 @@ function findProblem(product) {
   if (!isUsableNumber(product.quantity)) {
     return 'quantity is not a usable number';
   }
+  // `available` is deliberately not checked: a missing flag is not bad data,
+  // it is a product that is not for sale. filterProducts excludes it instead.
   return null;
 }
 
@@ -50,20 +56,23 @@ function filterProducts(products, options = {}) {
   // A non-array here is a programmer error, not bad data, so it throws rather
   // than returning an empty result that would hide the mistake.
   if (!Array.isArray(products)) {
+    // `typeof null` would report 'object' and send the reader the wrong way.
     const received = products === null ? 'null' : typeof products;
     throw new TypeError(`filterProducts expects an array, received ${received}`);
   }
 
   const { minPrice = DEFAULT_MIN_PRICE, onInvalid } = options;
 
-  const kept = [];
-  let totalValue = 0;
+  const kept = [];        // the products that survive both checks
+  let totalValue = 0;     // price x quantity, accumulated as we go
 
   // One pass. Each row has three possible outcomes (unusable, excluded, kept)
   // and a single loop expresses that without building an intermediate array.
   for (const product of products) {
+    // 1. Can this row be used at all?
     const problem = findProblem(product);
     if (problem !== null) {
+      // Guarded, so passing a non-function by mistake does not kill the run.
       if (typeof onInvalid === 'function') onInvalid(product, problem);
       continue;
     }
@@ -71,11 +80,14 @@ function filterProducts(products, options = {}) {
     // Strict `=== true`, so a missing flag or a truthy "yes" fails closed.
     // Showing something as available when we are not sure is the expensive
     // direction to be wrong in.
+    // 2. Should it be excluded? Two ways that can happen.
     if (product.available !== true) continue;
 
+    // `<=` because the brief says "priced at 500 or below", so 500 is dropped.
     if (product.price <= minPrice) continue;
 
-    kept.push(product);
+    // 3. It stays.
+    kept.push(product);   // by reference: nothing here mutates a product
     totalValue += product.price * product.quantity;
   }
 
